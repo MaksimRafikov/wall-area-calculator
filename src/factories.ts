@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS } from "./calculations";
+import { mergeSettings } from "./calculations";
 import { newId } from "./id";
 import type { Opening, OpeningKind, Room, Wall } from "./types";
 
@@ -12,7 +12,10 @@ export function createWall(label = ""): Wall {
   };
 }
 
-export function createOpening(kind: OpeningKind = "window"): Opening {
+export function createOpening(
+  kind: OpeningKind = "window",
+  settings = mergeSettings(),
+): Opening {
   return {
     id: newId(),
     kind,
@@ -20,7 +23,7 @@ export function createOpening(kind: OpeningKind = "window"): Opening {
     widthM: 0,
     heightM: 0,
     archRectHeightM: 0,
-    revealDepthM: DEFAULT_SETTINGS.defaultRevealDepthM[kind],
+    revealDepthM: settings.defaultRevealDepthM[kind],
     deduct: true,
     count: 1,
   };

@@ -1,16 +1,17 @@
 import { createOpening } from "../factories";
-import type { Wall } from "../types";
+import type { ProjectSettings, Wall } from "../types";
 import { DimensionInput } from "./DimensionInput";
 import { OpeningEditor } from "./OpeningEditor";
 
 interface WallEditorProps {
   wall: Wall;
+  settings: ProjectSettings;
   minDeductArea: number;
   onChange: (wall: Wall) => void;
   onRemove: () => void;
 }
 
-export function WallEditor({ wall, minDeductArea, onChange, onRemove }: WallEditorProps) {
+export function WallEditor({ wall, settings, minDeductArea, onChange, onRemove }: WallEditorProps) {
   const patch = (partial: Partial<Wall>) => onChange({ ...wall, ...partial });
 
   const updateOpening = (id: string, opening: typeof wall.openings[0]) => {
@@ -24,7 +25,7 @@ export function WallEditor({ wall, minDeductArea, onChange, onRemove }: WallEdit
   };
 
   const addOpening = () => {
-    patch({ openings: [...wall.openings, createOpening()] });
+    patch({ openings: [...wall.openings, createOpening("window", settings)] });
   };
 
   return (
@@ -68,6 +69,7 @@ export function WallEditor({ wall, minDeductArea, onChange, onRemove }: WallEdit
             <OpeningEditor
               key={o.id}
               opening={o}
+              settings={settings}
               minDeductArea={minDeductArea}
               onChange={(next) => updateOpening(o.id, next)}
               onRemove={() => removeOpening(o.id)}

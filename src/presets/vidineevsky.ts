@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS } from "../calculations";
+import { mergeSettings } from "../calculations";
 import type { Opening, OpeningKind, Project, Room, Wall } from "../types";
 import { newId } from "../id";
 
@@ -136,9 +136,6 @@ export function createVidineevskyProject(): Project {
     id: newId(),
     name: "Видинеевский",
     rooms,
-    settings: {
-      ...DEFAULT_SETTINGS,
-      minDeductAreaM2: 0.5,
-    },
+    settings: mergeSettings({ minDeductAreaM2: 0.5 }),
   };
 }

@@ -1,9 +1,10 @@
 import { createWall } from "../factories";
-import type { Room } from "../types";
+import type { ProjectSettings, Room } from "../types";
 import { WallEditor } from "./WallEditor";
 
 interface RoomEditorProps {
   room: Room;
+  settings: ProjectSettings;
   minDeductArea: number;
   onChange: (room: Room) => void;
   onRemove: () => void;
@@ -13,6 +14,7 @@ interface RoomEditorProps {
 
 export function RoomEditor({
   room,
+  settings,
   minDeductArea,
   onChange,
   onRemove,
@@ -71,6 +73,7 @@ export function RoomEditor({
               <WallEditor
                 key={w.id}
                 wall={w}
+                settings={settings}
                 minDeductArea={minDeductArea}
                 onChange={(next) => updateWall(w.id, next)}
                 onRemove={() => removeWall(w.id)}

@@ -24,6 +24,37 @@ export const DEFAULT_SETTINGS: ProjectSettings = {
   },
 };
 
+/** Площадь кругового сегмента по хорде w и стреле archHeight */
+function circularSegmentAreaM2(width: number, archHeight: number): number {
+  if (width <= 0 || archHeight <= 0) return 0;
+  const R = (width * width) / (8 * archHeight) + archHeight / 2;
+  const d = R - archHeight;
+  return R * R * Math.acos(d / R) - d * (width / 2);
+}
+
+/** Длина дуги сегмента */
+function circularSegmentArcM(width: number, archHeight: number): number {
+  if (width <= 0 || archHeight <= 0) return 0;
+  const R = (width * width) / (8 * archHeight) + archHeight / 2;
+  return 2 * R * Math.asin(Math.min(1, width / (2 * R)));
+}
+
+function archPartAreaM2(width: number, archHeight: number): number {
+  const r = width / 2;
+  if (archHeight >= r) {
+    return (PI * r * r) / 2 + (archHeight - r) * width;
+  }
+  return circularSegmentAreaM2(width, archHeight);
+}
+
+function archPartArcM(width: number, archHeight: number): number {
+  const r = width / 2;
+  if (archHeight >= r) {
+    return PI * r;
+  }
+  return circularSegmentArcM(width, archHeight);
+}
+
 /** Площадь одного проёма (м²) */
 export function openingAreaM2(opening: Opening): number {
   const { widthM: w, heightM: h, archRectHeightM } = opening;
@@ -36,20 +67,10 @@ export function openingAreaM2(opening: Opening): number {
   const rectH = Math.min(Math.max(archRectHeightM, 0), h);
   const archHeight = h - rectH;
   if (archHeight <= 0) {
-    const r = w / 2;
-    return (PI * r * r) / 2;
+    return w * rectH;
   }
 
-  const r = w / 2;
-  const semicircle = archHeight >= r ? (PI * r * r) / 2 : approximatePartialEllipse(w, archHeight);
-  return w * rectH + semicircle;
-}
-
-/** Приближение сегмента круга при низкой арке */
-function approximatePartialEllipse(width: number, archHeight: number): number {
-  const r = width / 2;
-  const ratio = Math.min(archHeight / r, 1);
-  return ((PI * r * r) / 2) * ratio;
+  return w * rectH + archPartAreaM2(w, archHeight);
 }
 
 /** Периметр проёма для откосов (м) — внутренний контур */
@@ -63,12 +84,11 @@ export function openingPerimeterM(opening: Opening): number {
 
   const rectH = Math.min(Math.max(archRectHeightM, 0), h);
   const archHeight = h - rectH;
-  const r = w / 2;
   if (archHeight <= 0) {
-    return w + PI * r;
+    return 2 * (w + rectH);
   }
-  const arcLen = archHeight >= r ? PI * r : PI * r * (archHeight / r);
-  return w + 2 * rectH + arcLen;
+
+  return w + 2 * rectH + archPartArcM(w, archHeight);
 }
 
 export function isWindowKind(kind: OpeningKind): boolean {
@@ -77,8 +97,9 @@ export function isWindowKind(kind: OpeningKind): boolean {
 
 export function revealAreaM2(opening: Opening): number {
   const depth = opening.revealDepthM;
+  const count = Math.max(1, Math.round(opening.count) || 1);
   if (depth <= 0) return 0;
-  return openingPerimeterM(opening) * depth * opening.count;
+  return openingPerimeterM(opening) * depth * count;
 }
 
 function splitRevealM2(opening: Opening): Pick<OpeningCalc, "windowRevealM2" | "openingRevealM2"> {
@@ -101,11 +122,12 @@ function sumReveals(items: { windowRevealM2: number; openingRevealM2: number }[]
 
 function calcOpening(opening: Opening, settings: ProjectSettings): OpeningCalc {
   const unitArea = openingAreaM2(opening);
-  const areaM2 = unitArea * opening.count;
-  const meetsMin = unitArea >= settings.minDeductAreaM2;
-  const deductAreaM2 =
-    opening.deduct && meetsMin ? areaM2 : 0;
-  const reveals = splitRevealM2(opening);
+  const count = Math.max(1, Math.round(opening.count) || 1);
+  const areaM2 = unitArea * count;
+  const totalForThreshold = areaM2;
+  const meetsMin = totalForThreshold >= settings.minDeductAreaM2;
+  const deductAreaM2 = opening.deduct && meetsMin ? areaM2 : 0;
+  const reveals = splitRevealM2({ ...opening, count });
 
   return {
     opening,
@@ -143,8 +165,8 @@ function calcRoom(room: Room, settings: ProjectSettings): RoomCalc {
 }
 
 export function calcProject(project: Project): ProjectCalc {
-  const settings = project.settings ?? DEFAULT_SETTINGS;
-  const rooms = project.rooms.map((r) => calcRoom(r, settings));
+  const settings = mergeSettings(project.settings);
+  const rooms = (project.rooms ?? []).map((r) => calcRoom(r, settings));
   const totals = rooms.reduce(
     (acc, r) => ({
       grossM2: acc.grossM2 + r.grossM2,
@@ -165,4 +187,19 @@ export function calcProject(project: Project): ProjectCalc {
   );
 
   return { rooms, totals };
+}
+
+export function mergeSettings(partial?: Partial<ProjectSettings>): ProjectSettings {
+  const base = DEFAULT_SETTINGS;
+  if (!partial) return { ...base, defaultRevealDepthM: { ...base.defaultRevealDepthM } };
+  return {
+    minDeductAreaM2:
+      typeof partial.minDeductAreaM2 === "number" && partial.minDeductAreaM2 >= 0
+        ? partial.minDeductAreaM2
+        : base.minDeductAreaM2,
+    defaultRevealDepthM: {
+      ...base.defaultRevealDepthM,
+      ...(partial.defaultRevealDepthM ?? {}),
+    },
+  };
 }

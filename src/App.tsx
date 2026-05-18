@@ -5,9 +5,9 @@ import { ResultsTable } from "./components/ResultsTable";
 import { RoomEditor } from "./components/RoomEditor";
 import { downloadCsv } from "./exportCsv";
 import { createRoom } from "./factories";
-import type { Project } from "./types";
+import type { Project, Room } from "./types";
 import { createVidineevskyProject } from "./presets/vidineevsky";
-import { loadProject, saveProject } from "./storage";
+import { clearProject, createEmptyProject, loadProject, saveProject } from "./storage";
 import { AreaMm2Input } from "./components/AreaMm2Input";
 
 export default function App() {
@@ -16,7 +16,8 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    saveProject(project);
+    const timer = window.setTimeout(() => saveProject(project), 450);
+    return () => window.clearTimeout(timer);
   }, [project]);
 
   const calc = useMemo(() => calcProject(project), [project]);
@@ -25,18 +26,24 @@ export default function App() {
     setProject((p) => ({ ...p, ...patch }));
   };
 
-  const updateRoom = (id: string, room: typeof project.rooms[0]) => {
-    updateProject({
-      rooms: project.rooms.map((r) => (r.id === id ? room : r)),
-    });
+  const updateRoom = (id: string, room: Room) => {
+    setProject((p) => ({
+      ...p,
+      rooms: p.rooms.map((r) => (r.id === id ? room : r)),
+    }));
   };
 
   const removeRoom = (id: string) => {
-    updateProject({ rooms: project.rooms.filter((r) => r.id !== id) });
+    setProject((p) => ({ ...p, rooms: p.rooms.filter((r) => r.id !== id) }));
+    setCollapsedRooms((c) => {
+      const next = { ...c };
+      delete next[id];
+      return next;
+    });
   };
 
-  const addRoom = (room: typeof project.rooms[0]) => {
-    updateProject({ rooms: [...project.rooms, room] });
+  const addRoom = (room: Room) => {
+    setProject((p) => ({ ...p, rooms: [...p.rooms, room] }));
   };
 
   const toggleRoom = (id: string) => {
@@ -54,6 +61,15 @@ export default function App() {
     setCollapsedRooms({});
   };
 
+  const resetProject = () => {
+    if (!confirm("Очистить все помещения и начать заново?")) return;
+    clearProject();
+    const empty = createEmptyProject();
+    saveProject(empty);
+    setProject(empty);
+    setCollapsedRooms({});
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -63,7 +79,7 @@ export default function App() {
           </span>
           <div>
             <h1>Калькулятор площади стен</h1>
-            <p className="header__sub">Внутренняя отделка · мм → м² · откосы отдельно</p>
+            <p className="header__sub">Внутренняя отделка · мм → м² · откосы по факту</p>
           </div>
         </div>
         <div className="header__actions">
@@ -76,6 +92,9 @@ export default function App() {
             onClick={() => setShowSettings((s) => !s)}
           >
             Настройки
+          </button>
+          <button type="button" className="btn btn--ghost" onClick={resetProject}>
+            Сброс
           </button>
           <button
             type="button"
@@ -97,6 +116,11 @@ export default function App() {
         <SummaryCard label="Всего откосов" value={calc.totals.totalRevealM2} unit="м²" />
       </div>
 
+      <p className="totals-note">
+        Итоги по объекту — сумма по комнатам. Общие перегородки учтены в каждой смежной комнате
+        (норма для сметы внутренней отделки).
+      </p>
+
       <main className="layout">
         <section className="panel panel--input">
           <div className="panel__head">
@@ -115,11 +139,12 @@ export default function App() {
                 label="Мин. площадь проёма для вычета"
                 valueM2={project.settings.minDeductAreaM2}
                 onChange={(v) =>
-                  updateProject({
-                    settings: { ...project.settings, minDeductAreaM2: v },
-                  })
+                  setProject((p) => ({
+                    ...p,
+                    settings: { ...p.settings, minDeductAreaM2: v },
+                  }))
                 }
-                title="Проёмы меньше этого порога не вычитаются, даже если отмечено «вычитать»"
+                title="Суммарная площадь проёма (с учётом кол-ва) меньше порога — не вычитается"
               />
             </div>
           )}
@@ -130,7 +155,12 @@ export default function App() {
             <button
               type="button"
               className="btn btn--secondary"
-              onClick={() => addRoom(createRoom(`Помещение ${project.rooms.length + 1}`))}
+              onClick={() =>
+                setProject((p) => ({
+                  ...p,
+                  rooms: [...p.rooms, createRoom(`Помещение ${p.rooms.length + 1}`)],
+                }))
+              }
             >
               + Пустое помещение
             </button>
@@ -144,6 +174,7 @@ export default function App() {
               <RoomEditor
                 key={room.id}
                 room={room}
+                settings={project.settings}
                 minDeductArea={project.settings.minDeductAreaM2}
                 onChange={(next) => updateRoom(room.id, next)}
                 onRemove={() => removeRoom(room.id)}
@@ -151,18 +182,6 @@ export default function App() {
                 onToggleCollapse={() => toggleRoom(room.id)}
               />
             ))}
-          </div>
-
-          <div className="future card-nested">
-            <h4>Скоро</h4>
-            <p className="hint">
-              Загрузка схемы проекта и полуавтоматическое распознавание размеров — в следующей
-              версии. Структура данных уже готова к импорту.
-            </p>
-            <label className="upload-stub">
-              <input type="file" disabled accept="image/*,.pdf,.dwg" />
-              <span>Загрузить план (недоступно в MVP)</span>
-            </label>
           </div>
         </section>
 

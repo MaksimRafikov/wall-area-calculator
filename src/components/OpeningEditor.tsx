@@ -1,17 +1,13 @@
-import {
-  DEFAULT_SETTINGS,
-  isWindowKind,
-  openingAreaM2,
-  revealAreaM2,
-} from "../calculations";
+import { isWindowKind, mergeSettings, openingAreaM2, revealAreaM2 } from "../calculations";
 import { OPENING_KIND_LABELS } from "../constants";
-import type { Opening, OpeningKind } from "../types";
+import type { Opening, OpeningKind, ProjectSettings } from "../types";
 import { DimensionInput } from "./DimensionInput";
 import { IntegerInput } from "./IntegerInput";
 import { m2ToMm2 } from "../units";
 
 interface OpeningEditorProps {
   opening: Opening;
+  settings: ProjectSettings;
   minDeductArea: number;
   onChange: (opening: Opening) => void;
   onRemove: () => void;
@@ -19,6 +15,7 @@ interface OpeningEditorProps {
 
 export function OpeningEditor({
   opening,
+  settings,
   minDeductArea,
   onChange,
   onRemove,
@@ -26,15 +23,17 @@ export function OpeningEditor({
   const patch = (partial: Partial<Opening>) => onChange({ ...opening, ...partial });
 
   const setKind = (kind: OpeningKind) => {
+    const depths = mergeSettings(settings).defaultRevealDepthM;
     onChange({
       ...opening,
       kind,
-      revealDepthM: DEFAULT_SETTINGS.defaultRevealDepthM[kind],
+      revealDepthM: depths[kind],
     });
   };
 
   const unitArea = openingAreaM2(opening);
-  const belowMin = unitArea > 0 && unitArea < minDeductArea;
+  const totalArea = unitArea * Math.max(1, opening.count);
+  const belowMin = totalArea > 0 && totalArea < minDeductArea;
   const reveal = revealAreaM2(opening);
   const revealLabel = isWindowKind(opening.kind) ? "откосы окна" : "откосы проёма";
 
