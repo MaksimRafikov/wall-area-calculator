@@ -192,6 +192,13 @@ export default function App() {
           <ResultsTable calc={calc} />
         </section>
       </main>
+
+      <p className="site-credit">
+        Разработка —{" "}
+        <a href="https://maximrafikov.ru/" target="_blank" rel="noopener noreferrer">
+          Максим Рафиков
+        </a>
+      </p>
     </div>
   );
 }

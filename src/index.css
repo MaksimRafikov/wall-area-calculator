@@ -521,3 +521,21 @@ body {
 .settings {
   margin-bottom: 0.75rem;
 }
+
+.site-credit {
+  margin: 2rem 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.site-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.site-credit a:hover {
+  color: var(--navy);
+}
+
